@@ -114,3 +114,37 @@ The Scalability Trilemma
 ![[blockchain_trilemma.png]]
 
 For example reducing the number of nodes in the system can lead to greater throughput of transactions, but the system is then more centralised.
+
+
+Q&A
+
+1. Blockchains have the advantage of being
+
+- Robust and censorship resistant
+- Easily administered
+- High performance
+
+2. The state of the blockchain is held
+
+- In a shared database that the nodes access
+- On each node
+- In a central ledger
+
+3. A consensus mechanism allows the blockchain to
+
+- Decide which nodes can be part of the system
+- Decide on the latest state of the system
+- Decide which users can use the blockchain
+
+4. Accounts on the blockchain are
+
+- Assigned to each user by the blockchain administrator
+- Created by the users using asymmetric cryptography
+- Allocated to the users on a first come first served basis
+
+5. Smart contracts are
+
+- AI enhanced programs used to administer the blockchain
+- Verifiable code forming part of a decentralised application
+- A legal contract that blockchain users need to accept
+
