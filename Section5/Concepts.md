@@ -1,6 +1,6 @@
 # zkApp Execution 
 
-
+![[graphics/MINA_off_chain_computation.png | 600]]
 
 **1. User Interaction:**
 
@@ -71,6 +71,9 @@ Imagine a simple zkApp that verifies a user's age without revealing their exact 
 
 
 Essentially, a circuit in zkApp development represents the logic of your smart contract method, expressed in a format suitable for generating a zero-knowledge proof.
+
+
+
 
 A circuit is a representation of a computation that can be verified using a zero-knowledge proof.
 It's essentially a set of constraints that define the relationships between different inputs and outputs. 
