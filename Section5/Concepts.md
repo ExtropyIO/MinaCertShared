@@ -142,5 +142,115 @@ There will be many constraints in the circuits, not just those derived from the 
 
 There are limits to the number of constraints a circuit can contain, this limits the size and complexity of our zkApps.
 
+# Built in types
 
 
+
+## Functions
+
+### Types of Functions in a zkApp
+
+1.  **`@method` Decorated Functions:** These are special functions within a zkApp class (usually extending the `SmartContract` class) that are designated to be part of the public interface of your zkApp.
+
+    *   They are marked with the `@method` decorator.
+    *   These functions can be called by external users or other zkApps.
+    *   When called, they trigger off-chain execution and proof generation.
+    *   They typically interact with and update the zkApp's on-chain state.
+
+    ```typescript
+    import { SmartContract, method, State, state } from 'o1js';
+
+    class MyZkApp extends SmartContract {
+      @state(Field) x = State<Field>();
+
+      @method myZkAppFunction(y: Field) {
+        // ... function logic, constraints, etc. ...
+        const currentState = this.x.get();
+        this.x.assertEquals(currentState); // Prove that we know the current state
+        const newState = currentState.add(y);
+        this.x.set(newState); // Update on-chain state
+      }
+    }
+    ```
+
+2.  **Regular Functions:** You can also define regular functions within your zkApp or in separate files for code organisation and reusability.
+
+    *   These functions are *not* directly callable from outside the zkApp.
+    *   They are used internally by `@method` functions or other helper functions.
+    *   They can be inlined into the circuit (if called from a provable context) or executed normally (if called from a non-provable context).
+
+    ```typescript
+    import { Field, Provable } from 'snarkyjs';
+
+    // Helper function that might be inlined into the circuit
+    function myHelperFunction(a: Field, b: Field): Field {
+        return a.mul(b).add(1);
+    }
+
+    // Function to use in a provable context
+    function myProvableFunction(x: Field): Field {
+      return Provable.if(x.greaterThan(Field(5)), Field(1), Field(0));
+    }
+    ```
+
+### Provable and Non-Provable Contexts
+
+*   **Provable Context (`Provable.runAndCheck` or inside a smart contract method):** Code within this context contributes to the circuit definition and is executed during proof generation. Constraints are enforced here.  Think of this as the part of your code that gets "baked" into the zero-knowledge proof.
+*   **Non-Provable Context (regular JavaScript/TypeScript code):** Code here is executed normally and does not contribute to the circuit. Constraints are not enforced. This is mainly for setup, testing or functions that don't require provable code.
+
+### Function Arguments and Return Values in `@method` Functions
+
+*   **Arguments:**  `@method` functions typically take arguments that are either:
+    *   **Public Inputs:** These values become part of the transaction and are visible on the blockchain.
+    *   **Private Inputs:** These values are part of the computation but are *not* directly stored on the blockchain. The proof demonstrates that the prover (the one executing the function) knew these values and used them correctly, but the values themselves remain hidden.
+*   **Return Values:** `@method` functions in the current version of Mina generally do not have return values in the traditional sense. Instead of returning data, they achieve their effects by:
+    *   **Updating On-Chain State:**  Modifying the zkApp's state variables, which are stored on the blockchain.
+    *   **Emitting Events:** These are notifications that something happened during the execution of the function, which can be observed by external parties but do not change the state.
+    *   **Failing:** If a constraint is violated or an assertion fails during the execution, the function call will effectively fail and revert any changes to the state.
+
+**Example**
+
+```typescript
+import {
+  Field,
+  SmartContract,
+  state,
+  State,
+  method,
+  PrivateKey,
+  PublicKey,
+  Mina,
+  AccountUpdate,
+  Provable,
+  assert,
+} from 'snarkyjs';
+
+class SimpleZkApp extends SmartContract {
+  @state(Field) num = State<Field>();
+
+  @method init() {
+    super.init();
+    this.num.set(Field(1));
+  }
+
+  @method update(increment: Field) {
+    const currentNum = this.num.get();
+    this.num.assertEquals(currentNum); // Prove knowledge of the current state value
+
+    // Using a helper function to calculate the new value
+    const newNum = calculateNewValue(currentNum, increment);
+
+    // Asserting a condition before updating the state
+    newNum.assertLessThan(Field(100), "New value must be less than 100");
+
+    this.num.set(newNum);
+  }
+}
+
+// Regular helper function (might be inlined into the circuit)
+function calculateNewValue(current: Field, increment: Field): Field {
+  return current.add(increment);
+}
+```
+
+**In summary:** Functions in Mina are the core of zkApp logic. `@method` functions define the publicly callable interface and trigger off-chain execution and proof generation. Regular functions help with code organisation. Understanding the distinction between provable and non-provable contexts is crucial. While `@method` functions don't have return values, they update on-chain state, emit events, or fail to signal results. These features enable Mina's unique properties of scalability, privacy, and verifiability.
