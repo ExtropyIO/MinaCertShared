@@ -180,7 +180,7 @@ There are limits to the number of constraints a circuit can contain, this limits
     *   They can be inlined into the circuit (if called from a provable context) or executed normally (if called from a non-provable context).
 
     ```typescript
-    import { Field, Provable } from 'snarkyjs';
+    import { Field, Provable } from 'o1js';
 
     // Helper function that might be inlined into the circuit
     function myHelperFunction(a: Field, b: Field): Field {
@@ -223,7 +223,7 @@ import {
   AccountUpdate,
   Provable,
   assert,
-} from 'snarkyjs';
+} from 'o1js';
 
 class SimpleZkApp extends SmartContract {
   @state(Field) num = State<Field>();
