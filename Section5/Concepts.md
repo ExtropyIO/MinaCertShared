@@ -99,11 +99,14 @@ You can think of provable code as a way to create verifiable computations that c
 
 Making methods provable in Mina has several benefits:
 
-● Privacy: Sensitive information used in computations remains hidden.
+- Privacy: Sensitive information used in computations remains hidden.
 
-● Security: ZKPs provide cryptographic guarantees that the computation was performed correctly according to the defined rules.
+- Security: ZKPs provide cryptographic guarantees that the computation was performed correctly according to the defined rules.
 
-● Scalability: Verifying a proof is much faster than re-executing the entire computation, making Mina a highly scalable blockchain.
+- Scalability: Verifying a proof is much faster than re-executing the entire computation, making Mina a highly scalable blockchain.
+
+![[./graphics/provable-code-method.gif]]
+
 
 ## Why is this important ?
 
