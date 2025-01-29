@@ -67,12 +67,12 @@ Imagine a simple zkApp that verifies a user's age without revealing their exact 
 **In essence, circuit creation in Mina involves translating the desired logic into a format that can be processed by the Kimchi proof system, ensuring both privacy and efficiency.**
 
 
-# Whats in a circuit
+# Whats in a circuit ? 
 
 
 Essentially, a circuit in zkApp development represents the logic of your smart contract method, expressed in a format suitable for generating a zero-knowledge proof.
 
-
+![[zk-circuit.png]]
 
 
 A circuit is a representation of a computation that can be verified using a zero-knowledge proof.
@@ -105,8 +105,8 @@ Making methods provable in Mina has several benefits:
 
 - Scalability: Verifying a proof is much faster than re-executing the entire computation, making Mina a highly scalable blockchain.
 
-![[./graphics/provable-code-method.gif]]
 
+![[provable-code-method.gif]]
 
 ## Why is this important ?
 
