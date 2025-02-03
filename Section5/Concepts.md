@@ -257,3 +257,395 @@ function calculateNewValue(current: Field, increment: Field): Field {
 ```
 
 **In summary:** Functions in Mina are the core of zkApp logic. `@method` functions define the publicly callable interface and trigger off-chain execution and proof generation. Regular functions help with code organisation. Understanding the distinction between provable and non-provable contexts is crucial. While `@method` functions don't have return values, they update on-chain state, emit events, or fail to signal results. These features enable Mina's unique properties of scalability, privacy, and verifiability.
+
+
+## Conditionals
+
+Conditionals in Mina, similar to other programming languages, allow you to control the flow of execution in your zkApp code based on certain conditions. However, because Mina uses zero-knowledge proofs and relies on circuit-based computations, conditionals have some specific characteristics and limitations compared to traditional programming.
+
+**Key Concepts**
+
+1. **Circuit Compatibility:** Conditionals in Mina must be compatible with the circuit representation of your zkApp's logic. This means that the conditions and the code executed within each branch of the conditional must be expressible as constraints within the circuit.
+2. **Provable.if:** The primary way to express conditionals within a provable context (inside `@method` functions or `Provable.runAndCheck`) is using the `Provable.if` function. This function allows you to select between two values based on a `Bool` condition, all within the constraints of the circuit.
+3. **In-Circuit Execution:** When you use `Provable.if`, both branches of the conditional are effectively "executed" in the sense that they are evaluated and contribute to the circuit's constraints. However, the constraints ensure that only the result of the chosen branch is used in subsequent computations.
+
+**Provable.if**
+
+The `Provable.if` function is the cornerstone of conditionals in Mina's provable code. Here's how it works:
+
+TypeScript
+
+```
+Provable.if(condition: Bool, then: T, else: T): T
+```
+
+- `condition`: A `Bool` value that determines which branch is selected.
+- `then`: The value to be returned if the `condition` is `true`.
+- `else`: The value to be returned if the `condition` is `false`.
+- `T`: The type of the `then` and `else` values, which must be the same. This can be any type that is compatible with o1js and circuit constraints (e.g., `Field`, `Bool`, custom structures, etc.)
+
+**Example**
+
+TypeScript
+
+```
+import { Field, Bool, Provable } from 'o1js';
+
+let x = Field(10);
+let y = Field(5);
+
+let result = Provable.if(x.greaterThan(y), x, y); // Select the larger value
+
+Provable.log('Result:', result); // Output will be 10
+```
+
+**How Provable.if Works in the Circuit**
+
+Internally, `Provable.if` uses a "selector" mechanism to choose the appropriate value. It essentially creates constraints that look like this (simplified):
+
+```
+result = condition * then + (1 - condition) * else
+```
+
+- If `condition` is true (1), then `result` will be equal to `then`.
+- If `condition` is false (0), then `result` will be equal to `else`.
+
+**Important Considerations**
+
+4. **Both Branches are Evaluated:** Keep in mind that both `then` and `else` expressions in `Provable.if` are evaluated in the sense that they contribute to the circuit. The constraints ensure that only the relevant result is used, but both branches have a computational cost. This can impact performance, especially in nested conditionals.
+    
+5. **Circuit Size:** Complex conditionals with many branches or nested `Provable.if` statements can lead to larger circuits, which might affect proof generation time.
+    
+6. **Side Effects:** Avoid side effects (like updating state or emitting events) within the branches of `Provable.if` if you are not sure of the context. It's generally recommended to keep the branches focused on calculating values and to handle side effects outside the conditional. Using side-effects is allowed, but it makes the code less readable and more prone to have non-intended behavior.
+    
+7. **Alternatives for Complex Logic:** For very complex conditional logic, you might consider alternative approaches like:
+    
+    - **Lookup Tables:** If the condition depends on a limited set of possible values, you can precompute the results and use a lookup table within the circuit.
+    - **Specialized Gadgets:** For certain common patterns, o1js might provide specialized "gadgets" (optimized functions) that can handle conditional logic more efficiently.
+    - **Refactoring:** Sometimes, you can refactor your code to reduce the need for complex conditionals in the first place.
+
+**Conditionals Outside Provable Context**
+
+In the non-provable parts of your Mina code (outside `@method` functions and `Provable.runAndCheck`), you can use regular JavaScript/TypeScript `if`, `else if`, and `else` statements as you normally would. These conditionals do not affect the circuit and are executed normally.
+
+**Example: Conditional State Update**
+
+TypeScript
+
+```
+import { Field, SmartContract, state, State, method, Bool, Provable } from 'o1js';
+
+class MyZkApp extends SmartContract {
+  @state(Field) value = State<Field>();
+
+  @method myConditionalUpdate(x: Field, condition: Bool) {
+    const currentValue = this.value.get();
+    this.value.assertEquals(currentValue);
+
+    const newValue = Provable.if(condition, x, currentValue);
+
+    this.value.set(newValue);
+  }
+}
+```
+
+**In Summary**
+
+Conditionals in Mina are primarily handled by `Provable.if` within provable contexts. This function allows for circuit-compatible conditional logic, where both branches are evaluated but only the chosen result is used. While powerful, it's important to be mindful of circuit size and potential performance implications when using complex conditionals in your zkApps. Using regular `if` statements is possible in non-provable sections of the code. Understanding these nuances is essential for writing efficient and correct provable code in Mina.
+
+
+# Storage Overview
+
+Mina's zkApps utilize a unique approach to storage, combining on-chain and off-chain solutions to manage data efficiently.
+
+**On-Chain Storage:**
+
+- **Limited Capacity:** Each zkApp account has 8 fields, each holding approximately 32 bytes of data. This is suitable for storing essential parameters, root hashes of larger datasets, or small pieces of information.
+- **Fast Access:** On-chain storage is readily accessible within the zkApp, enabling efficient interaction with core application data.
+- **Security:** Data stored on-chain benefits from the inherent security of the Mina blockchain.
+
+**Off-Chain Storage:**
+
+- **Scalability:** For larger datasets, zkApps rely on off-chain storage solutions. This can involve decentralised storage systems like IPFS, or even traditional centralized servers.
+- **Flexibility:** Developers have the freedom to choose the off-chain storage that best suits their needs and application requirements.
+- **Cost-Effectiveness:** Off-chain storage is generally more cost-effective than storing large amounts of data directly on the blockchain.
+
+**Bridging On-Chain and Off-Chain:**
+
+- **Commitment Schemes:** zkApps typically use commitment schemes (like Merkle trees) to link on-chain and off-chain data. The root hash of the off-chain data structure is stored on-chain, providing a verifiable link to the complete dataset.
+
+**Example:**
+
+Imagine a zkApp for a decentralised social media platform. User profiles, posts, and images could be stored off-chain in IPFS. The zkApp would store the root hash of this data on-chain. When a user wants to view a post, the zkApp can use zk-SNARKs to prove that the post data is consistent with the committed root hash stored on the blockchain.
+
+By combining the strengths of both on-chain and off-chain storage, Mina zkApps can achieve a good balance of functionality, security, and cost-effectiveness.
+
+![[off_chain_on_chain_storage.png]]
+# Off chain versus on chain
+
+**On-Chain Storage**
+
+- **Features:**
+    - **Limited Capacity:** Each zkApp account has 8 fields, each holding about 32 bytes of data.2
+    - **Fast Access:** Data is readily available within the zkApp
+    - **High Security:** Benefits from the blockchain's inherent security.
+    - **Transparency:** Data is publicly viewable on the Mina blockchain.
+- **Use Cases:**
+    - Storing crucial application parameters.
+    - Storing root hashes of larger off-chain datasets (using Merkle trees or similar).4
+    - Holding small, critical pieces of information.
+    - Managing token balances and ownership.
+
+**Off-Chain Storage**
+
+- **Features:**
+    - **Scalability:** Handles large datasets that wouldn't fit on-chain.
+    - **Flexibility:** Developers choose the storage solution (IPFS, centralized servers, etc.).
+    - **Cost-Effectiveness:** Generally cheaper than on-chain storage.
+    - **Privacy:** Can be used to store sensitive data that shouldn't be public.
+- **Use Cases:**
+    - Storing large files (images, videos, documents).
+    - Managing extensive user databases.
+    - Handling complex data structures.
+    - Archiving historical data.
+
+
+**How They Work Together**
+
+- **Commitment Schemes:** zkApps typically use commitment schemes (like Merkle trees) to link on-chain and off-chain data. The root hash of the off-chain data is stored on-chain, providing a verifiable link to the off-chain data.
+
+**Example:**
+
+A zkApp for a decentralised exchange (DEX) might store the current order book off-chain. The on-chain storage would hold the Merkle root of this order book. When a user places an order, the zkApp would generate a zk-SNARK proof to verify that the new order is valid and included in the updated off-chain order book.
+
+By combining the strengths of both on-chain and off-chain storage, Mina zkApps can achieve a good balance of functionality, security, and cost-effectiveness.
+
+
+
+# Recursion
+
+![Screenshot_20241031_105406.png](app://c53887f8d538cb3a76eb9e00ce1d6e219d4c/Users/extropy/Work/Dev/MinaCertificationMaterial/img/Screenshot_20241031_105406.png?1730373609421)
+
+We have seen how Mina uses recursive proofs at the protocol level to produce a constant size succinct blockchain.
+
+Within the blocks recursion is used to compress transactions down to a constant size.
+
+On top of the protocol, we can use recursion when writing our zkApps.
+
+As part of our zkApp we can verify a zero knowledge program.
+
+We do this using `zkProgram`
+
+See [ZKProgram Overview](https://docs.minaprotocol.com/zkapps/o1js/recursion#zkprogram-overview)
+
+## Recursion in zkApps
+
+Mina's zkApps uniquely support recursion, allowing you to verify any zero-knowledge program as part of your zkApp. This powerful feature unlocks several advanced capabilities, including:
+
+• Verifying complex computations: Recursion allows you to break down large computations into smaller, verifiable steps. Each step generates a proof, and these proofs can be recursively combined into a single proof for the entire computation.
+
+• Building zkRollups and app chains: ZkRollups are Layer-2 scaling solutions that bundle multiple transactions off-chain and generate a single proof for their validity. App chains are application-specific blockchains built on top of Mina. Both leverage recursion to efficiently verify large numbers of transactions.
+
+• Facilitating multi-party computation: Multiple parties can contribute to a computation by recursively updating a zero-knowledge proof. This enables secure off-chain collaboration and data sharing.
+
+# Nullifiers
+
+A nullifier is a cryptographic tool used to represent a unique anonymous account. It's like a secret code that proves a specific action was taken by a particular account without revealing the account's identity. Imagine a voting system where you want to ensure everyone votes only once, but keep their votes anonymous. Nullifiers can achieve this:
+
+Nullifiers are particularly useful for:
+
+• Preventing double-spending: Ensuring someone can't spend the same digital currency twice.
+
+• Maintaining consistent identity across actions: Allowing an anonymous user to interact with a zkApp multiple times while preserving their anonymity.
+
+![[nullifiers_n.png]]
+## o1js support
+
+In o1js a nullifier is implemented as a provable data structure.
+
+It has the following properties:
+
+• Private components: These are secret values used to generate the nullifier and verify its correctness.
+
+• Public components: These are values publicly associated with the nullifier.
+
+• Public key: This is the public key associated with the anonymous account represented by the nullifier.
+
+## o1js methods for nullifiers
+
+These include
+
+• assertUnused() and isUnused(): Check if the nullifier has been previously used, which is essential for preventing double-spending or multiple actions.
+
+• getPublicKey(): Retrieves the public key associated with the nullifier.
+
+• setUsed(): Marks the nullifier as used, updating the associated Merkle tree.
+
+• verify(): Ensures the nullifier was generated correctly for a specific message, preventing tampering.
+
+
+# Custom Tokens
+
+Mina supports custom tokens at a low level in the tech stack, treating them almost the same way as the native MINA token.  
+This approach offers several advantages, including reducing the need for boilerplate contracts and simplifying account and balance management for developers.
+
+Each account on Mina can have tokens associated with it, and zkApps can be built to interact with these tokens, facilitating actions such as token swaps
+
+The rules for custom token operations are defined within a token manager smart contract.
+
+A token manager smart contract is a standard smart contract utilising the TokenContract class to manipulate tokens.  
+This contract defines the rules for actions like minting, burning, and sending custom tokens
+
+• Minting generates new tokens and adds them to an account's balance.
+
+• Burning removes tokens from an account's balance.
+
+• Sending transfers tokens between two accounts and requires zkApp approval.
+
+The token manager account can assign a token symbol, like "MYTKN", for its token.  
+Uniqueness is not enforced for token names because each token has a unique identifier derived from the public key of the managing account.
+
+Key terms for custom tokens:
+
+• Token ID: Unique identifiers for different custom tokens, derived from a zkApp. You can check a zkApp's token ID using `this.token.id`
+
+• Token accounts: Similar to regular accounts but hold the balance of a specific custom token instead of MINA.  
+These accounts are created from existing accounts and are identified by a public key and a token ID.
+
+
+# Private Credentials and Attestations
+
+Mina has a Private Credentials API on its product roadmap, which will offer a standardised interface for issuing credentials and proving attestations of private credentials to verifiers
+
+This would provide a standardised way for users to receive credentials and prove they hold those credentials without revealing the underlying data.
+
+Imagine having digital versions of your driver's license, university degree, or professional certifications, all stored securely in your Mina wallet.
+
+
+![[private-credentials.png]]
+## Attestations
+
+In Mina, an attestation is a statement that someone has proven something in a zero-knowledge proof. For example, an attestation could be a statement that you are over 18 or that you hold a valid driver's license. The beauty of zero-knowledge proofs is that you can prove these statements without revealing the underlying data.  
+So, you could prove that you're over 18 without revealing your birth date, or prove you hold a driver's license without revealing your license number.
+
+Mina is actively working on establishing a robust Private Credential Standard to ensure the secure and efficient implementation of this functionality.
+
+The current proposals for Private credentials and attestations outlines a system where credentials would be composed of different types of attestations, including Mina-compatible signatures and recursive proofs.
+
+This approach leverages Mina's strengths in zero-knowledge cryptography, particularly its support for recursive proofs, which allows for the verification of complex statements built upon other proofs
+
+
+# Authorisation and Permissions
+
+Authorisation and permissions are crucial for securing zkApp accounts on Mina.
+
+## Permissions
+
+Permissions define the authorisation level needed to perform actions on a zkApp account.
+
+## Authorisation
+
+Authorisation specifies the validation type required for an account update to be permitted and is checked whenever an account is accessed.
+
+### Types of Authorisation
+
+Mina uses the following authorisation types:
+
+- none: Open access; anyone can manipulate the field.
+    
+- impossible: The field is immutable and can never be modified.
+    
+- signature: Requires a valid signature from the account owner for authorisation.
+    
+- proof: Requires a valid zero-knowledge proof generated by executing a zkApp method, validated against the account's verification key.
+    
+- proofOrSignature: Accepts either a valid signature or a valid proof.
+    
+
+### Default Permissions
+
+Newly deployed zkApp contracts begin with default permissions designed for development but should be adjusted for production.
+
+Two default permissions require particular attention:
+
+1. setVerificationKey: signature: Allows the account owner to change the zkApp's code at any time using only their signature. This is convenient for development but poses a security risk in production. For production, set setVerificationKey to impossible to prevent upgrades or to proof to enable upgrades only through a secure protocol requiring a valid zero-knowledge proof.
+    
+2. setPermissions: signature: Allows the account owner to change permissions using only their signature, potentially overriding other security measures. This permission should be carefully managed and locked down to prevent arbitrary changes to the zkApp's security settings.
+
+---
+
+
+
+# Transactions and Account Updates
+
+In Mina, when users interact with a zkApp, they generate a transaction that encapsulates the results of their interaction. These transactions, composed of account updates, are sent to the Mina network for validation and application.
+
+- Transaction
+    
+    - A JSON object containing a list of account updates, a fee payer, and an optional memo.
+        
+    - The fee payer is the account responsible for covering the transaction fee.
+        
+    - The account updates list describes all the modifications to be made to various accounts.
+        
+    - The memo is an optional field for attaching a short message to the transaction.
+        
+- Account Update
+    
+    - Contains updates for a single specific account.
+        
+    - Includes:
+        
+        - PublicKey: The address of the account being updated.
+            
+        - TokenId: A unique hash representing the token associated with the update. Defaults to the native MINA token.
+            
+        - Preconditions: Conditions that must be met for the update to be applied.
+            
+        - Updates: The actual changes being made to the account.
+            
+        - BalanceChange: Changes to the account's balance, either positive or negative.
+            
+        - Authorization: How the update is authorized can be a proof (for zkApp accounts), a signature (for user accounts), or none (for updates that don't require authorization).
+            
+
+
+
+--- 
+
+# State Update
+
+A state update refers to any modification to the on-chain data associated with a zkApp account. Each zkApp account has 8 fields, each able to store approximately 32 bytes of arbitrary data. This on-chain storage is referred to as a zkApp's "state".
+
+To modify this state, you need to use a transaction. Transactions are bundles of instructions sent to the Mina network. These instructions are formatted as account updates, which describe exactly how specific accounts should be changed.
+
+Within a transaction, account updates can target different aspects of a zkApp account:
+
+- appState: The core on-chain state of a zkApp. Modified using the this.&lt;state>.set() method within zkApp code.
+    
+- permissions: Permissions control who can do what with your zkApp. They can be modified using this.&lt;permission>.set().
+    
+- verificationKey: The cryptographic key used to verify proofs generated by your zkApp. You can upgrade your zkApp by changing this key.
+
+![[state_update_current_state.png]]
+![[state_update_example.png]]
+
+
+When you call a @method within your zkApp, it implicitly creates an account update targeting the zkApp account itself. This update will include changes to the appState based on your code, and it will be authorised using a proof generated from the execution of your @method.
+
+State updates only occur when a valid transaction containing the proof is accepted by the network. This ensures the integrity and consistency of the zkApp's state.
+
+State updates occur when a zkApp's data on the blockchain is modified. This modification is facilitated through transactions that include proof of correct execution generated by the zkApp.
+
+
+---
+
+# Preconditions
+
+A precondition in Mina is a condition that must be met for a transaction, or account update, to be applied on the Mina blockchain. It is essentially a rule that needs to be satisfied for the transaction to be deemed valid.
+
+At the heart of Mina transactions lies the concept of an "account update". An account update serves as a set of instructions for the Mina network, detailing changes to be made to a specific account on the blockchain. These updates encompass modifications to the account's balance, state, and other relevant attributes.
+
+
+![[preconditions.png]]
+Think of a precondition as a safeguard, ensuring that only legitimate updates are applied to an account. Before an account update is processed, the preconditions are examined. Only if these preconditions are met will the update be accepted and the changes implemented on the blockchain.
